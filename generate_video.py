@@ -1,19 +1,17 @@
 import os
-import time
-import random
-import numpy as np
-from huggingface_hub import hf_hub_download
-import gradio as gr
+import torch
 import imageio
-from PIL import Image, ImageDraw, ImageFont
+import gradio as gr
+from huggingface_hub import hf_hub_download
+import numpy as np
 
 # -------------------------------
-# Step 1: Download Model Files
+# Step 1: Download Required Model Files
 # -------------------------------
 REQUIRED_FILES = [
     "config.json",
     "generation_config.json",
-    "model-00001-of-00002.safetensors",  # Recommend using *.safetensors for safety.
+    "model-00001-of-00002.safetensors",  # Prefer using safetensors for security.
     "model-00002-of-00002.safetensors",
     "model.safetensors.index.json",
     "special_tokens_map.json",
@@ -23,6 +21,7 @@ REQUIRED_FILES = [
 ]
 
 MODEL_DIR = "./flan_t5"
+WEIGHTS_PATH = os.path.join(MODEL_DIR, "model-00001-of-00002.safetensors")
 
 def download_model_files():
     """Download required model files from the Hugging Face Hub if not present."""
@@ -40,102 +39,84 @@ def download_model_files():
     print("All required files are available.")
 
 # -------------------------------
-# Step 2: Import (or simulate) Goku Model Components
+# Step 2: Import and Load the Goku Model
 # -------------------------------
+# IMPORTANT: This assumes that the repository defines a GokuModel class that handles
+# realistic video generation. The model is expected to have a method (here called
+# generate_frames) that takes a text prompt and returns a list of video frames (as numpy arrays).
 try:
-    from goku.model import Block, AdaLayerNorm, FeedForward, RMSNorm, Attention, apply_rotary_emb
+    from goku.model import GokuModel
 except ImportError:
-    print("Goku model components not found – proceeding with dummy implementations.")
-    # For this demo, these components aren't used directly.
+    raise ImportError("GokuModel not found in goku/model.py. Please ensure the model is properly implemented.")
+
+def load_goku_model():
+    """Initialize the Goku model and load pre-trained weights."""
+    print("Initializing Goku model...")
+    model = GokuModel()  # Instantiate the model (should include architecture definition)
+    # Load weights from the downloaded file(s).
+    model.load_weights(MODEL_DIR)
+    model.eval()  # Set to evaluation mode
+    return model
 
 # -------------------------------
-# Step 3: Define the Goku Video Generator
+# Step 3: Generate Video Using the Goku Model
 # -------------------------------
-class GokuVideoGenerator:
-    def __init__(self):
-        # In a real implementation, initialize the full network architecture here.
-        print("Initialized GokuVideoGenerator (dummy demo version).")
-        self.num_frames = 10           # Number of frames in the video
-        self.frame_size = (256, 256)   # Frame dimensions (width, height)
-    
-    def load_weights(self, model_dir):
-        """Simulate loading model weights from the given directory."""
-        weights_path = os.path.join(model_dir, "model-00001-of-00002.safetensors")
-        if os.path.exists(weights_path):
-            print(f"Loading weights from {weights_path}...")
-            # In practice, load the weights (e.g., using torch.load or safetensors).
-            print("Weights loaded successfully.")
-        else:
-            print("Weights file not found in", model_dir)
-    
-    def generate_video_from_text(self, text_prompt):
-        """
-        Generate a dummy video from a text prompt.
-        In a real system, you would use a text encoder and a diffusion
-        or transformer-based network to generate video frames.
-        Here we simulate this by generating images with the prompt drawn on them.
-        """
-        print(f"Encoding text prompt: '{text_prompt}'")
-        seed = abs(hash(text_prompt)) % (10**8)
-        random.seed(seed)
-        np.random.seed(seed)
-        
-        print("Generating video frames...")
-        frames = []
-        for i in range(self.num_frames):
-            color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-            img = Image.new("RGB", self.frame_size, color)
-            draw = ImageDraw.Draw(img)
-            text = f"Frame {i+1}\n{text_prompt}"
-            try:
-                font = ImageFont.truetype("arial.ttf", 16)
-            except IOError:
-                font = ImageFont.load_default()
-            draw.text((10, 10), text, fill=(255, 255, 255), font=font)
-            frames.append(np.array(img))
-            time.sleep(0.1)  # Simulate processing delay
-        
-        video_path = "generated_video.mp4"
-        print("Compiling frames into video...")
-        # Specify the codec ("libx264") so that PyAV has the necessary parameter.
-        imageio.mimwrite(video_path, frames, fps=2, codec="libx264")
-        print(f"Video generated and saved to {video_path}")
-        return video_path
-
-# -------------------------------
-# Step 4: Video Generation Function
-# -------------------------------
-def generate_video(text_prompt: str):
+def generate_video_from_text(prompt: str, num_frames: int = 16, fps: int = 4) -> str:
     """
-    Full pipeline: checks model files, loads the Goku video generator,
-    and generates a video from the provided text prompt.
+    Generate a realistic video from a text prompt using the Goku AI model.
+    
+    Args:
+        prompt (str): The text prompt describing the video content.
+        num_frames (int): Number of frames to generate.
+        fps (int): Frames per second for the output video.
+    
+    Returns:
+        str: Path to the generated video file.
     """
+    # Ensure that model files are present
     download_model_files()
-    generator = GokuVideoGenerator()
-    generator.load_weights(MODEL_DIR)
-    video_path = generator.generate_video_from_text(text_prompt)
+    
+    # Load the model
+    model = load_goku_model()
+
+    print(f"Generating {num_frames} frames for prompt: '{prompt}'")
+    # The generate_frames method is assumed to implement the diffusion process or
+    # autoregressive video generation pipeline that produces a list of frames.
+    with torch.no_grad():
+        # This call should return a list of numpy arrays (H x W x C)
+        frames = model.generate_frames(prompt, num_frames=num_frames)
+    
+    # Verify that frames are generated
+    if not frames or not isinstance(frames, list):
+        raise ValueError("No frames were generated. Check the model implementation.")
+
+    # Compile frames into a video file (MP4)
+    video_path = "generated_video.mp4"
+    print("Compiling frames into video...")
+    # Specify codec for realistic video encoding (libx264 is common)
+    imageio.mimwrite(video_path, frames, fps=fps, codec="libx264")
+    print(f"Video generated and saved to {video_path}")
     return video_path
 
 # -------------------------------
-# Step 5: Create Gradio UI and Sample Input
+# Step 4: Gradio UI
 # -------------------------------
+def generate_video(prompt: str):
+    """
+    Gradio-friendly function to generate a video from a text prompt.
+    
+    Returns:
+        str: Path to the generated video file.
+    """
+    return generate_video_from_text(prompt)
+
 iface = gr.Interface(
     fn=generate_video,
-    inputs=gr.Textbox(lines=2, placeholder="Enter your video prompt here..."),
+    inputs=gr.Textbox(lines=4, placeholder="Enter your detailed video prompt here..."),
     outputs=gr.Video(),
     title="Goku AI Video Generator",
-    description="Enter a text prompt to generate a video using the Goku open source model (demo version)."
+    description="Generate realistic video content using the Goku AI model. Provide a detailed text prompt and let the model create a video."
 )
 
-def sample_run():
-    sample_prompt = "A futuristic city skyline at dusk with vibrant neon lights."
-    print(f"Running sample input: {sample_prompt}")
-    generated_video = generate_video(sample_prompt)
-    print(f"Sample video generated at: {generated_video}")
-
 if __name__ == "__main__":
-    # Uncomment the following line to run a sample input from the terminal.
-    # sample_run()
-    
-    # Launch the Gradio UI with sharing enabled.
     iface.launch(share=True)
