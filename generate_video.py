@@ -97,8 +97,8 @@ class GokuVideoGenerator:
         
         video_path = "generated_video.mp4"
         print("Compiling frames into video...")
-        # Removed 'quality' argument to avoid the error.
-        imageio.mimwrite(video_path, frames, fps=2)
+        # Specify the codec ("libx264") so that PyAV has the necessary parameter.
+        imageio.mimwrite(video_path, frames, fps=2, codec="libx264")
         print(f"Video generated and saved to {video_path}")
         return video_path
 
