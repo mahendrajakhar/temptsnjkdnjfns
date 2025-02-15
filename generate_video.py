@@ -10,7 +10,6 @@ from PIL import Image, ImageDraw, ImageFont
 # -------------------------------
 # Step 1: Download Model Files
 # -------------------------------
-# List of required files (as used by Goku / FLAN-T5 text encoder)
 REQUIRED_FILES = [
     "config.json",
     "generation_config.json",
@@ -43,13 +42,11 @@ def download_model_files():
 # -------------------------------
 # Step 2: Import (or simulate) Goku Model Components
 # -------------------------------
-# In the actual Goku repository, you have a detailed implementation in goku/model.py.
-# We attempt to import those components. If not available, we print a message.
 try:
     from goku.model import Block, AdaLayerNorm, FeedForward, RMSNorm, Attention, apply_rotary_emb
 except ImportError:
     print("Goku model components not found – proceeding with dummy implementations.")
-    # (For this demo, we don't need to use these components directly.)
+    # For this demo, these components aren't used directly.
 
 # -------------------------------
 # Step 3: Define the Goku Video Generator
@@ -59,7 +56,7 @@ class GokuVideoGenerator:
         # In a real implementation, initialize the full network architecture here.
         print("Initialized GokuVideoGenerator (dummy demo version).")
         self.num_frames = 10           # Number of frames in the video
-        self.frame_size = (256, 256)     # Frame dimensions (width, height)
+        self.frame_size = (256, 256)   # Frame dimensions (width, height)
     
     def load_weights(self, model_dir):
         """Simulate loading model weights from the given directory."""
@@ -74,12 +71,11 @@ class GokuVideoGenerator:
     def generate_video_from_text(self, text_prompt):
         """
         Generate a dummy video from a text prompt.
-        In a real system, you would use a text encoder (e.g., FLAN-T5) and a diffusion
+        In a real system, you would use a text encoder and a diffusion
         or transformer-based network to generate video frames.
-        Here we simulate by generating images with the prompt drawn on them.
+        Here we simulate this by generating images with the prompt drawn on them.
         """
         print(f"Encoding text prompt: '{text_prompt}'")
-        # For demo purposes, use the prompt's hash as a seed.
         seed = abs(hash(text_prompt)) % (10**8)
         random.seed(seed)
         np.random.seed(seed)
@@ -87,11 +83,9 @@ class GokuVideoGenerator:
         print("Generating video frames...")
         frames = []
         for i in range(self.num_frames):
-            # Create a dummy image: a colored background influenced by randomness.
             color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
             img = Image.new("RGB", self.frame_size, color)
             draw = ImageDraw.Draw(img)
-            # Write frame number and prompt on the image.
             text = f"Frame {i+1}\n{text_prompt}"
             try:
                 font = ImageFont.truetype("arial.ttf", 16)
@@ -101,10 +95,10 @@ class GokuVideoGenerator:
             frames.append(np.array(img))
             time.sleep(0.1)  # Simulate processing delay
         
-        # Compile frames into a video file (MP4) using imageio.
         video_path = "generated_video.mp4"
         print("Compiling frames into video...")
-        imageio.mimwrite(video_path, frames, fps=2, quality=8)  # Adjust fps/quality as needed
+        # Removed 'quality' argument to avoid the error.
+        imageio.mimwrite(video_path, frames, fps=2)
         print(f"Video generated and saved to {video_path}")
         return video_path
 
@@ -116,14 +110,9 @@ def generate_video(text_prompt: str):
     Full pipeline: checks model files, loads the Goku video generator,
     and generates a video from the provided text prompt.
     """
-    # Ensure required model files are present.
     download_model_files()
-    
-    # Initialize the video generator and load weights.
     generator = GokuVideoGenerator()
     generator.load_weights(MODEL_DIR)
-    
-    # Generate video from the text prompt.
     video_path = generator.generate_video_from_text(text_prompt)
     return video_path
 
@@ -145,8 +134,8 @@ def sample_run():
     print(f"Sample video generated at: {generated_video}")
 
 if __name__ == "__main__":
-    # Uncomment the next line to run a sample generation in the terminal.
+    # Uncomment the following line to run a sample input from the terminal.
     # sample_run()
     
-    # Launch the Gradio UI for interactive use.
-    iface.launch()
+    # Launch the Gradio UI with sharing enabled.
+    iface.launch(share=True)
